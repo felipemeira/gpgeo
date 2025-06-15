@@ -1,0 +1,17 @@
+# Sistema e IDE
+.vscode/
+AppData/
+Downloads/
+Documents/
+*.log
+*.tmp
+*.bak
+__pycache__/
+.env
+*.parc
+
+# Git e Docker
+.git/
+.docker/
+.ssh/
+.dbus-*

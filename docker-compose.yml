@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgis/postgis:15-3.3
+    container_name: gpgeo_db
+    restart: always
+    environment:
+      POSTGRES_DB: gpgeo
+      POSTGRES_USER: gpgeo_user
+      POSTGRES_PASSWORD: gpgeo_pass
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  geoserver:
+    image: kartoza/geoserver:latest
+    container_name: gpgeo_geoserver
+    restart: always
+    depends_on:
+      - db
+    environment:
+      - GEOSERVER_ADMIN_USER=admin
+      - GEOSERVER_ADMIN_PASSWORD=geoserver
+      - GEOSERVER_DATA_DIR=/opt/geoserver_data
+    volumes:
+      - geoserver_data:/opt/geoserver_data
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:
+  geoserver_data:
