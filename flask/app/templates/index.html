@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>GPGeo – are_jsu (SC)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+
+    #painel {
+      position: absolute; top: 10px; right: 10px; z-index: 1000;
+      background: #fff; padding: 8px 10px; font-family: sans-serif;
+      font-size: 14px; box-shadow: 0 0 6px #888; border-radius: 4px;
+      line-height: 1.25rem;
+    }
+    #painel select { width: 160px; margin-bottom: 6px; }
+
+    #dashboard {
+      position: absolute; top: 10px; left: 10px; z-index: 1000;
+      background: #fff; padding: 8px 10px; width: 310px;
+      font-family: sans-serif; box-shadow: 0 0 6px #888; border-radius: 4px;
+    }
+    #dashboard canvas { width: 100% !important; height: 200px !important; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- painel de filtros -->
+  <div id="painel">
+    <label>Vegetação:</label><br>
+    <select id="vegeta">
+      <option value="todos">Todos</option>
+      <option value="Nativo">Nativo</option>
+      <option value="Exótico">Exótico</option>
+      <option value="Outros">Outros</option>
+      <option value="Finalizado">Finalizado</option>
+    </select><br>
+
+    <label>Tipo:</label><br>
+    <select id="type">
+      <option value="todos">Todos</option>
+      <option value="FAIXA">Faixa</option>
+      <option value="TORRE">Torre</option>
+      <option value="ACESSO">Acesso</option>
+    </select><br>
+
+    <label>Seletivo:</label><br>
+    <select id="seletivo">
+      <option value="todos">Todos</option>
+      <option value="true">Sim</option>
+      <option value="false">Não</option>
+    </select><br>
+
+    <label>Realizado:</label><br>
+    <select id="realizado">
+      <option value="todos">Todos</option>
+      <option value="true">Sim</option>
+      <option value="false">Não</option>
+    </select>
+  </div>
+
+  <!-- painel do gráfico -->
+  <div id="dashboard">
+    <strong>Área por tipo de vegetação (ha)</strong>
+    <canvas id="grafico"></canvas>
+  </div>
+
+  <!-- libs -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    /* ========== mapa base ========== */
+    const map = L.map('map');
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    map.fitBounds([
+      [-26.40013313293457, -51.60273742675781],
+      [-25.905029296875 , -48.947601318359375]
+    ]);
+
+    /* ========== utilidades de filtro ========== */
+    function coletarFiltros() {
+      return {
+        vegeta   : document.getElementById('vegeta').value,
+        type     : document.getElementById('type').value,
+        seletivo : document.getElementById('seletivo').value,
+        realizado: document.getElementById('realizado').value
+      };
+    }
+
+    function montarCQL(f) {
+      const partes = [];
+      if (f.vegeta   !== 'todos') partes.push(`vegeta='${f.vegeta}'`);
+      if (f.type     !== 'todos') partes.push(`type='${f.type}'`);
+      if (f.seletivo !== 'todos') partes.push(`seletivo=${f.seletivo}`);   // bool
+      if (f.realizado!== 'todos') partes.push(`realizado=${f.realizado}`); // bool
+      return partes.length ? partes.join(' AND ') : null;
+    }
+
+    /* ========== WMS ========== */
+    let wmsLayer;
+    function atualizarWMS() {
+      const filtros = coletarFiltros();
+      const cql = montarCQL(filtros);
+
+      if (wmsLayer) map.removeLayer(wmsLayer);
+
+      wmsLayer = L.tileLayer.wms('http://localhost:8080/geoserver/gpgeo/wms', {
+        layers: 'gpgeo:are_jsu',
+        format: 'image/png',
+        transparent: true,
+        version: '1.1.1',
+        tiled: true,
+        attribution: 'GeoServer – are_jsu',
+        ...(cql ? { CQL_FILTER: cql } : {})
+      }).addTo(map);
+    }
+
+    atualizarWMS();  // inicial
+
+    /* ========== gráfico ========== */
+    let chartObj;
+    function atualizarGrafico() {
+      const filtros = coletarFiltros();
+      const cql = montarCQL(filtros);
+
+      let url = 'http://localhost:8080/geoserver/gpgeo/ows' +
+        '?service=WFS&version=1.0.0&request=GetFeature' +
+        '&typeName=gpgeo:are_jsu&outputFormat=application/json';
+      if (cql) url += `&CQL_FILTER=${encodeURIComponent(cql)}`;
+
+      fetch(url)
+        .then(r => r.json())
+        .then(geo => {
+          const soma = {};
+          geo.features.forEach(f => {
+            const veg = f.properties.vegeta || '—';
+            const a   = parseFloat(f.properties.area) || 0;
+            soma[veg] = (soma[veg] || 0) + a;
+          });
+
+          const ctx = document.getElementById('grafico').getContext('2d');
+          if (chartObj) chartObj.destroy();
+          chartObj = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: Object.keys(soma),
+              datasets: [{
+                label: 'Área (ha)',
+                data : Object.values(soma),
+                backgroundColor: '#1f78b4'
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: { y: { beginAtZero: true } }
+            }
+          });
+        })
+        .catch(err => console.error('Erro gráfico:', err));
+    }
+    atualizarGrafico();  // inicial
+
+    /* ========== conecta selects aos dois métodos ========== */
+    ['vegeta','type','seletivo','realizado'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        atualizarWMS();
+        atualizarGrafico();
+      });
+    });
+  </script>
+</body>
+</html>

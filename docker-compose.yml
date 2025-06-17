@@ -29,6 +29,20 @@ services:
     ports:
       - "8080:8080"
 
+  flask:
+    build: ./flask
+    container_name: gpgeo_flask
+    restart: always
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./flask:/app
+    depends_on:
+      - db
+
 volumes:
   pgdata:
   geoserver_data:
+
+
+  
