@@ -3,6 +3,7 @@ from flask_login import LoginManager
 from models import Usuario
 from auth import auth
 from dashboard import dashboard
+from db import get_conn 
 
 app = Flask(__name__)
 app.secret_key = 'sua-chave-secreta-aqui'  # troque para algo seguro

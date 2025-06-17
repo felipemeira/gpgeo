@@ -13,7 +13,7 @@ def login():
         usuario = Usuario.get_by_username(username)
         if usuario and usuario.check_senha(senha):
             login_user(usuario)
-            return redirect(url_for('dashboard.dashboard_view'))
+            return redirect(url_for('dashboard.dashboard_home'))
         else:
             flash('Credenciais inválidas', 'error')
 

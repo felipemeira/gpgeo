@@ -1,12 +1,26 @@
-<!-- templates/dashboard.html -->
 <!DOCTYPE html>
-<html lang="pt-br">
+<html>
 <head>
-    <meta charset="UTF-8">
     <title>Dashboard</title>
 </head>
 <body>
     <h1>Bem-vindo ao Dashboard!</h1>
-    <p>Login realizado com sucesso.</p>
+    <h2>Seus projetos:</h2>
+    <ul>
+        {% for projeto in projetos %}
+            <li>
+                <strong>{{ projeto.nome }}</strong>
+                <ul>
+                    {% for mapa in projeto.mapas %}
+                        <li>
+                            <a href="/static/mapa.html?layer={{ mapa.camada_geoserver }}" target="_blank">
+                                {{ mapa.nome }}
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </li>
+        {% endfor %}
+    </ul>
 </body>
 </html>
